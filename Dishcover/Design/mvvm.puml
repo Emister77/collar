@@ -1,0 +1,229 @@
+@startuml
+skinparam dpi 160
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 30
+skinparam ranksep 70
+skinparam class {
+  BorderColor #555555
+  ArrowColor #333333
+}
+skinparam package {
+  BorderColor #777777
+  FontSize 15
+}
+hide empty members
+hide circle
+
+package "VIEW  (SwiftUI)" as V #EAF2FB {
+  class ContentView <<TabView>>
+  class SearchView {
+    searchText
+    mode : name | ingredients
+    filters : cuisine, meal type, cook time
+  }
+  class RecipeListView <<List>> {
+    rows show pantry match + macros
+  }
+  class RecipeDetailView {
+    diet banner (fits / doesn't fit)
+    macro panel, servings, breakdown
+    ingredients (have / missing)
+    instructions, YouTube link
+  }
+  class RandomRecipeView
+  class PantryView <<List>> {
+    sections by food group + icons
+  }
+  class FavoritesView <<List>>
+  class StoreMapView <<Map>>
+  class DietProfileView <<Form>> {
+    diets, allergies, exclusions
+    goals, hide / warn
+  }
+}
+
+package "VIEWMODEL  (@Observable)" as VM #FFF4E5 {
+  class RecipeSearchViewModel {
+    results : [Recipe]
+    cuisines, selectedCuisine
+    mealType, cookTime
+    isLoading, errorMessage
+    --
+    loadCuisines()
+    searchByName(_:)
+    searchByIngredients(_:)
+    passesFilters(recipe)
+    fetchRandom()
+    match(recipe, pantry)
+  }
+  class PantryViewModel {
+    --
+    groupedItems : [PantrySection]
+    --
+    add(_:), remove(_:)
+    setGroup(_:for:)
+  }
+  class FavoritesViewModel {
+    --
+    toggle(recipe)
+    isFavorite(id)
+    remove(_:)
+  }
+  class DietProfileViewModel {
+    restrictions, customExclusions
+    goals, calorieLimit, hideConflicts
+    --
+    toggle(_:), addExclusion(_:)
+    conflicts(for: recipe)
+    missedGoals(for: macros)
+  }
+  class NutritionViewModel {
+    servings per recipe
+    --
+    estimate(for: recipe)
+    perServing(for: recipe)
+  }
+  class StoreMapViewModel {
+    stores : [MKMapItem]
+    region, authStatus
+    --
+    requestPermission()
+    searchNearbyStores()
+  }
+}
+
+package "MODEL" as M #EEF7EE {
+  class Recipe <<struct, Codable>> {
+    idMeal, strMeal, strInstructions
+    strMealThumb, strYoutube, strTags
+    ingredients : [Ingredient]
+    --
+    estimatedMinutes
+  }
+  class MealSummary <<struct, Codable>> {
+    idMeal, strMeal, strMealThumb
+  }
+  class FavoriteRecipe <<@Model SwiftData>> {
+    id, name, thumbnailURL, dateSaved
+  }
+  class PantryItem <<@Model SwiftData>> {
+    name, dateAdded, groupOverride
+    --
+    group, emoji
+  }
+  class FoodGroup <<enum>> {
+    meat, vegetables, fruits, dairy,
+    grains, legumes, herbs, sauces…
+    --
+    classify(name), emoji(for:)
+  }
+  class MealType <<enum>> {
+    breakfast, main, snack,
+    sandwich, dessert, side
+    --
+    matches(recipe)
+  }
+  class DietaryRestriction <<enum>> {
+    vegetarian, vegan, glutenFree…
+    peanuts, dairy, shellfish…
+    --
+    keywords, exceptions
+    violations(in: recipe)
+  }
+  class DietProfile <<@Model SwiftData>> {
+    restrictionIDs, customExclusions
+    goalIDs, calorieLimit, hideConflicts
+  }
+  class CookTimeRange <<enum>> {
+    < 15, 15–30, 30–60, 60+ min
+    --
+    contains(minutes)
+  }
+  class MacroEstimate <<struct>> {
+    total : Macros (kcal, P, C, F)
+    items : per-ingredient breakdown
+    confidence : good / fair / rough
+    --
+    perServing(n)
+  }
+  class MealDBService <<service>> {
+    search(name:)
+    filter(ingredient: / cuisine: / category:)
+    listCuisines()
+    lookup(id:)
+    random()
+  }
+  class NutritionCalculator <<service, on-device>> {
+    estimate(for: recipe)
+  }
+  class NutritionFacts <<built-in data>> {
+    ~350 ingredients, per 100 g
+    --
+    per100g(for: name)
+  }
+  class MeasureParser <<helper>> {
+    amount(for: ingredient) : grams
+  }
+}
+
+package "EXTERNAL / PLATFORM" #F3F3F3 {
+class "TheMealDB REST API" as API <<JSON over HTTPS>>
+class "SwiftData Store" as DB <<on-device>>
+class "CoreLocation + MapKit" as LOC <<Apple frameworks>>
+}
+
+ContentView --> SearchView
+ContentView --> PantryView
+ContentView --> RandomRecipeView
+ContentView --> FavoritesView
+ContentView --> DietProfileView
+SearchView --> RecipeListView
+RecipeListView --> RecipeDetailView
+RecipeDetailView --> StoreMapView
+
+SearchView ..> RecipeSearchViewModel : user actions /\nobserves state
+RecipeListView ..> RecipeSearchViewModel : binds results
+RandomRecipeView ..> RecipeSearchViewModel : fetchRandom()
+PantryView ..> PantryViewModel : add / remove
+FavoritesView ..> FavoritesViewModel : @Query + delete
+RecipeDetailView ..> FavoritesViewModel : toggle favorite
+StoreMapView ..> StoreMapViewModel : observes stores
+DietProfileView ..> DietProfileViewModel : edits profile
+RecipeDetailView ..> DietProfileViewModel : diet banner
+RecipeListView ..> NutritionViewModel : macros per row
+RecipeDetailView ..> NutritionViewModel : macros + servings
+RandomRecipeView ..> NutritionViewModel : macros
+
+RecipeSearchViewModel --> PantryViewModel : reads pantry
+RecipeSearchViewModel --> MealDBService : async calls
+MealDBService --> Recipe : decodes
+MealDBService --> MealSummary : decodes
+PantryViewModel --> PantryItem : CRUD
+PantryItem --> FoodGroup : grouping + icon
+FavoritesViewModel --> FavoriteRecipe : CRUD
+
+MealDBService --> API : HTTPS GET
+RecipeSearchViewModel --> MealType : filter rules
+RecipeSearchViewModel --> DietProfileViewModel : hides conflicts
+DietProfileViewModel --> DietaryRestriction : rules
+DietProfileViewModel --> DietProfile : CRUD
+DietProfile --> DB : ModelContext
+RecipeSearchViewModel --> CookTimeRange : time filter
+NutritionViewModel --> NutritionCalculator : estimate (cached)
+NutritionCalculator --> MeasureParser : measure to grams
+NutritionCalculator --> NutritionFacts : macros per 100 g
+NutritionCalculator --> MacroEstimate : builds
+PantryItem --> DB : ModelContext
+FavoriteRecipe --> DB : ModelContext
+StoreMapViewModel --> LOC : location +\nPOI search
+legend right
+  |= Arrow |= Meaning |
+  | solid (View → View) | navigation / child view |
+  | dashed (View → ViewModel) | data binding: View sends user intents,\nobserves @Observable state changes |
+  | solid (ViewModel → Model) | method calls / async requests,\nModel returns data |
+endlegend
+@enduml

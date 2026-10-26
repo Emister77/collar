@@ -1,0 +1,86 @@
+@startuml
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 25
+skinparam ranksep 60
+skinparam dpi 200
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam usecase {
+  BackgroundColor #FFF8EE
+  BorderColor #C0620F
+  ArrowColor #444444
+}
+skinparam actor {
+  BorderColor #333333
+}
+skinparam rectangle {
+  BorderColor #555555
+}
+
+actor "User" as User
+actor "TheMealDB API" as API <<system>>
+actor "Location Services\n(CoreLocation / MapKit)" as Loc <<system>>
+
+rectangle "Dishcover App" {
+  usecase "Search Recipes" as UC_Search
+  usecase "Search by Recipe Name" as UC_Name
+  usecase "Search by Pantry Ingredients" as UC_Ingr
+  usecase "Fetch Full Recipe Details" as UC_Fetch
+  usecase "View Recipe Details\n& Tutorial" as UC_Detail
+  usecase "Get Random Recipe" as UC_Random
+  usecase "Manage Pantry" as UC_Pantry
+  usecase "Add Ingredient" as UC_Add
+  usecase "Remove Ingredient" as UC_Remove
+  usecase "Load Saved Pantry" as UC_Load
+  usecase "Save Recipe to Favorites" as UC_Fav
+  usecase "View Favorites" as UC_ViewFav
+  usecase "Remove Favorite" as UC_RemFav
+  usecase "Find Nearby Grocery Stores" as UC_Map
+  usecase "Request Location Permission" as UC_Perm
+  usecase "Filter by Cuisine" as UC_Cuisine
+  usecase "Filter by Meal Type" as UC_Type
+  usecase "Filter by Cook Time" as UC_Time
+  usecase "View Macro Estimates" as UC_Macro
+  usecase "Manage Dietary Profile" as UC_Diet
+  usecase "Check Diet Compatibility" as UC_Check
+}
+
+User -- UC_Search
+User -- UC_Random
+User -- UC_Pantry
+User -- UC_ViewFav
+User -- UC_Detail
+User -- UC_Map
+
+UC_Search <|-- UC_Name
+UC_Search <|-- UC_Ingr
+UC_Pantry <|-- UC_Add
+UC_Pantry <|-- UC_Remove
+
+UC_Ingr ..> UC_Load : <<include>>
+UC_Ingr ..> UC_Fetch : <<include>>
+UC_Random ..> UC_Fetch : <<include>>
+UC_Detail ..> UC_Fetch : <<include>>
+UC_Map ..> UC_Perm : <<include>>
+
+UC_Detail <.. UC_Fav : <<extend>>
+UC_Detail <.. UC_Map : <<extend>>
+UC_ViewFav <.. UC_RemFav : <<extend>>
+
+UC_Name -- API
+UC_Ingr -- API
+UC_Fetch -- API
+UC_Random -- API
+UC_Perm -- Loc
+UC_Map -- Loc
+UC_Search <.. UC_Cuisine : <<extend>>
+UC_Search <.. UC_Type : <<extend>>
+UC_Search <.. UC_Time : <<extend>>
+UC_Detail ..> UC_Macro : <<include>>
+UC_Random ..> UC_Macro : <<include>>
+UC_Cuisine -- API
+User -- UC_Diet
+UC_Search ..> UC_Check : <<include>>
+UC_Detail ..> UC_Check : <<include>>
+@enduml
